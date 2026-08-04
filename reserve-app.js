@@ -11,21 +11,32 @@
 //
 // V1.5 : le mode édition global (crayon dans la topbar) a disparu — chaque
 // carte affiche désormais toujours son propre bouton "modifier". Le bouton
-// "notes" ouvre une modale basique (la Guilde n'existe pas encore) qui lit/
-// écrit le champ `notes` du livre.
+// "notes" ouvre le même parchemin de notes de séance que "En cours" (voir
+// notes-overlay.js, module partagé).
+//
+// V1.6 : la page ne scrolle plus dans son ensemble — reserve-bg.png garde
+// toujours la taille de l'écran. Seule la liste de Grimoires défile, dans un
+// carrousel qui met en avant l'ouvrage le plus proche du haut (60vw, net) et
+// assombrit/rétrécit les suivants (50vw). La plaque évolutive apparaît au
+// chargement puis se rétracte sous la topbar (comme le HUD de la home, mais
+// avec un déplacement vertical) ; un tap au centre de la topbar la rappelle.
 
-import { subscribeBooks, getBooks, addBook, updateBook, deleteBook, startReading, getCurrentReadingBook } from './data-layer.js';
+import { subscribeBooks, getBooks, addBook, updateBook, deleteBook, startReading } from './data-layer.js';
+import { subscribeSeances } from './player-layer.js';
 import { getGenreLabel } from './genreGroups.js';
 import { processBookIllustration } from './image-pixelart.js';
+import { openNotesOverlay } from './notes-overlay.js';
 
 let currentSort = 'none';
 let editingId = null; // id du livre en cours de modification, null = mode "ajout"
-let notesBookId = null;
+let currentSeances = [];
 let pendingIllustrationUrl = '';
 let illustrationDirty = false;
 
 const els = {
   phrase: document.getElementById('evolutive-phrase'),
+  plaque: document.getElementById('evolutive-plaque'),
+  topbarHitbox: document.getElementById('topbar-hitbox'),
   tabBiblio: document.getElementById('tab-bibliotheque'),
   tabArchives: document.getElementById('tab-archives'),
   panelBiblio: document.getElementById('panel-bibliotheque'),
@@ -46,11 +57,6 @@ const els = {
   illustrationPreview: document.getElementById('illustration-preview'),
   illustrationPreviewImg: document.getElementById('illustration-preview-img'),
   illustrationStatus: document.getElementById('illustration-status'),
-  modalNotes: document.getElementById('modal-notes'),
-  notesModalTitle: document.getElementById('notes-modal-title'),
-  notesTextarea: document.getElementById('f-notes'),
-  saveNotesBtn: document.getElementById('save-notes-btn'),
-  cancelNotes: document.getElementById('cancel-notes'),
 };
 
 function escapeHtml(str) {
@@ -59,26 +65,54 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function computeStatsLocal(books) {
-  const totalBooksOwned = books.length;
-  const finished = books.filter((b) => b.status === 'finished');
-  const genresExplored = new Set(finished.map((b) => b.genre));
-  const genresNeverExplored = new Set(
-    books.filter((b) => b.status !== 'finished').map((b) => b.genre).filter((g) => !genresExplored.has(g))
-  );
-  return { totalBooksOwned, genresNeverExploredCount: genresNeverExplored.size };
-}
+// ---- Plaque évolutive : texte + rétractation automatique -------------------
 
 function renderPhrase(books) {
-  const stats = computeStatsLocal(books);
-  if (stats.totalBooksOwned === 0) {
+  const total = books.length;
+  if (total === 0) {
     els.phrase.textContent = 'Ta Réserve est encore vide. Le premier Grimoire attend.';
     return;
   }
-  const enCours = getCurrentReadingBook(books);
+  const inexplores = books.filter((b) => b.status === 'backlog' || b.status === 'reading').length;
   els.phrase.innerHTML =
-    `<strong>${stats.totalBooksOwned}</strong> Grimoire${stats.totalBooksOwned > 1 ? 's' : ''} reposent dans ta Réserve. ` +
-    (enCours ? `<strong>${escapeHtml(enCours.title)}</strong> est ton livre en cours.` : `Aucun livre en cours pour l'instant.`);
+    `<strong>${total}</strong> Grimoire${total > 1 ? 's' : ''} reposent dans ta Réserve, ` +
+    `<strong>${inexplores}</strong> demeure${inexplores > 1 ? 'nt' : ''} inexploré${inexplores > 1 ? 's' : ''}.`;
+}
+
+let plaqueCollapseTimer = null;
+function schedulePlaqueCollapse(delay = 4000) {
+  clearTimeout(plaqueCollapseTimer);
+  plaqueCollapseTimer = setTimeout(() => els.plaque.classList.add('collapsed'), delay);
+}
+window.addEventListener('load', () => schedulePlaqueCollapse(4000));
+els.topbarHitbox.addEventListener('click', () => {
+  const willExpand = els.plaque.classList.contains('collapsed');
+  els.plaque.classList.toggle('collapsed');
+  if (willExpand) schedulePlaqueCollapse(4500);
+  else clearTimeout(plaqueCollapseTimer);
+});
+
+// ---- Carrousel : met en avant la carte la plus proche du haut --------------
+
+function initCarouselFocus(container) {
+  let ticking = false;
+  function update() {
+    ticking = false;
+    const containerTop = container.getBoundingClientRect().top;
+    let closest = null;
+    let closestDist = Infinity;
+    container.querySelectorAll('.grimoire-card').forEach((card) => {
+      const dist = Math.abs(card.getBoundingClientRect().top - containerTop);
+      if (dist < closestDist) { closestDist = dist; closest = card; }
+    });
+    container.querySelectorAll('.grimoire-card').forEach((card) => {
+      card.classList.toggle('is-focused', card === closest);
+    });
+  }
+  container.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  });
+  update();
 }
 
 function sortBooks(list) {
@@ -108,8 +142,14 @@ function renderTabContent(books) {
   });
 
   document.querySelectorAll('[data-notes-id]').forEach((btn) => {
-    btn.addEventListener('click', (e) => openNotesModal(e.currentTarget.dataset.notesId));
+    btn.addEventListener('click', (e) => {
+      const book = getBooks().find((b) => b.id === e.currentTarget.dataset.notesId);
+      if (book) openNotesOverlay(book, currentSeances);
+    });
   });
+
+  initCarouselFocus(els.panelBiblio);
+  initCarouselFocus(els.panelArchives);
 }
 
 function coverOrPlaceholder(book) {
@@ -139,9 +179,20 @@ function actionButtonsHtml(book) {
       <button class="icon-action-btn" data-edit-id="${book.id}" type="button" aria-label="Modifier">
         <img src="images/button-modify.png" alt="">
       </button>
-      <button class="icon-action-btn" data-notes-id="${book.id}" type="button" aria-label="Notes de lecture">
+      <button class="icon-action-btn" data-notes-id="${book.id}" type="button" aria-label="Lire les notes">
         <img src="images/button-accesnotes.png" alt="">
       </button>
+    </div>
+  `;
+}
+
+function metaRowHtml(book, { enCours = false, aDejaCommence = false } = {}) {
+  return `
+    <div class="book-row__meta">
+      <span class="tag--light">${getGenreLabel(book.genre)}</span>
+      <span class="tag--light">${book.pageCount} pages</span>
+      ${enCours ? '<span class="tag--light tag--progress">en cours</span>' : ''}
+      ${!enCours && aDejaCommence ? `<span class="tag--light tag--progress">en pause · ${book.pagesRead}/${book.pageCount}</span>` : ''}
     </div>
   `;
 }
@@ -158,12 +209,7 @@ function renderBiblioCard(book) {
           <div class="book-row__body">
             <h3 class="book-row__title">${escapeHtml(book.title)}</h3>
             <p class="book-row__author">${escapeHtml(book.author)}</p>
-            <div class="book-row__meta">
-              <span class="tag--light">${getGenreLabel(book.genre)}</span>
-              <span class="tag--light">${book.pageCount} pages</span>
-              ${enCours ? '<span class="tag--light tag--progress">en cours</span>' : ''}
-              ${!enCours && aDejaCommence ? `<span class="tag--light tag--progress">en pause · ${book.pagesRead}/${book.pageCount}</span>` : ''}
-            </div>
+            ${metaRowHtml(book, { enCours, aDejaCommence })}
             ${synopsis ? `<div class="book-row__divider"></div><p class="book-row__synopsis">${synopsis}</p>` : ''}
             ${!enCours ? `
               <div class="card-actions">
@@ -189,10 +235,7 @@ function renderArchiveCard(book) {
           <div class="book-row__body">
             <h3 class="book-row__title">${escapeHtml(book.title)}</h3>
             <p class="book-row__author">${escapeHtml(book.author)}</p>
-            <div class="book-row__meta">
-              <span class="tag--light">${getGenreLabel(book.genre)}</span>
-              <span class="tag--light">${book.pageCount} pages</span>
-            </div>
+            ${metaRowHtml(book)}
             ${synopsis ? `<div class="book-row__divider"></div><p class="book-row__synopsis">${synopsis}</p>` : ''}
           </div>
           ${actionButtonsHtml(book)}
@@ -266,15 +309,6 @@ function openEditModal(id) {
   openModal(els.modalManual);
 }
 
-function openNotesModal(id) {
-  const book = getBooks().find((b) => b.id === id);
-  if (!book) return;
-  notesBookId = id;
-  els.notesModalTitle.textContent = `Notes — ${book.title}`;
-  els.notesTextarea.value = book.notes || '';
-  openModal(els.modalNotes);
-}
-
 els.synopsisInput.addEventListener('input', () => {
   els.synopsisCount.textContent = String(els.synopsisInput.value.length);
 });
@@ -318,16 +352,6 @@ els.modalManual.addEventListener('click', (e) => {
   if (e.target === els.modalManual) closeModal(els.modalManual);
 });
 
-els.cancelNotes.addEventListener('click', () => closeModal(els.modalNotes));
-els.modalNotes.addEventListener('click', (e) => {
-  if (e.target === els.modalNotes) closeModal(els.modalNotes);
-});
-els.saveNotesBtn.addEventListener('click', async () => {
-  if (!notesBookId) return;
-  await updateBook(notesBookId, { notes: els.notesTextarea.value });
-  closeModal(els.modalNotes);
-});
-
 els.manualForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const data = new FormData(els.manualForm);
@@ -362,4 +386,8 @@ els.manualForm.addEventListener('submit', async (e) => {
 subscribeBooks((books) => {
   renderPhrase(books);
   renderTabContent(books);
+});
+
+subscribeSeances((seances) => {
+  currentSeances = seances;
 });
