@@ -1,0 +1,21 @@
+Code uniquement — remplace/ajoute ces fichiers dans ton dépôt (les images
+réelles y sont déjà, celles de ce zip ne sont que mes extractions de
+secours pour button-ia/button-reglages/gm-*).
+
+NOUVEAU DANS CETTE LIVRAISON :
+- encours.html + encours-app.js : la rubrique "En cours" complète.
+  Affiche le livre en lecture (status "reading" dans data-layer.js),
+  une jauge de progression, un formulaire "pages lues aujourd'hui" qui
+  calcule l'XP (Savoir + bonus de séance, V1 uniquement), met à jour
+  le niveau et journalise la séance. Bouton "Marquer comme terminé"
+  quand la dernière page est atteinte (pas de bonus XP de fin de livre,
+  comme convenu).
+- player-layer.js (nouveau fichier) : gère xpTotal/niveau/historique
+  des séances, séparé de data-layer.js qui ne gère que les livres.
+  Stocké dans localStorage sous 'scriptoriapp_player_v1'.
+- xp-engine.js : ajout de calculerNiveau(xpTotal), la courbe de progression
+  1→5 qu'on avait figée (300/500/750/1050). Le reste du fichier
+  (Arcanes, Curiosité, Régularité) n'est toujours pas utilisé en V1.
+
+Pour tester le flux complet : Réserve → "Commencer la lecture" sur un
+livre → En cours → saisir des pages → Valider la séance.

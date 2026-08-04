@@ -1,0 +1,142 @@
+/* ============================================================
+   ScriptoriApp — common.css
+   Styles partagés par TOUTES les pages (index.html, reserve.html,
+   encours.html, et les futures rubriques).
+   Chaque page garde son CSS spécifique en inline (<style>) —
+   ce fichier ne contient que ce qui est réellement transversal :
+   - variables / reset / typographie de base
+   - topbar des rubriques (image + titre) — absente de la home
+   - système de panneau 9-slice
+   - bandeau de navigation entre rubriques (footer bas)
+   - boutons communs (.btn-dnd)
+   ============================================================ */
+
+:root{
+  --navy: #1c2430;
+  --xp-green: #6fbf4f;
+  --book-blue: #4fa3d1;
+  --ink: #2a1c10;
+  --glow-cyan: #57e0e8;
+  --oak-900: #1c1209;
+  --oak-800: #2b1c12;
+  --brass: #c9a876;
+  --brass-light: #e8cd94;
+  --parchment: #ede3c8;
+  --danger: #c0453a;
+  --panel-corner: 26px;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:'VT323', monospace;
+  color:var(--parchment);
+  background:#20140c;
+  min-height:100vh;
+}
+h1,h2,h3,.pixel{ font-family:'Press Start 2P', monospace; letter-spacing:1px; }
+
+/* ============ TOPBAR DES RUBRIQUES (pas la home) ============ */
+.topbar-rubrique{
+  position:relative;
+  width:100%;
+  aspect-ratio: 1774 / 267; /* correspond au recadrage de topbar-bg.png (bannière + torches, sans le vide transparent) */
+  overflow:hidden;
+  background:var(--oak-900);
+  z-index:10;
+}
+.topbar-rubrique img{
+  position:absolute;
+  left:0; top:0;
+  width:100%; height:auto;
+  transform:translateY(-31.23%);
+  pointer-events:none;
+  user-select:none;
+}
+.topbar-rubrique .page-title{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  margin:0;
+  padding:0 68px; /* laisse la place aux torches de chaque côté */
+  font-family:"Cinzel", "Georgia", serif;
+  font-weight:800;
+  font-size:clamp(10px, 4.4vw, 26px);
+  white-space:nowrap;
+  text-transform:uppercase;
+  text-align:center;
+  letter-spacing:0.045em;
+  background:linear-gradient(to bottom, #fff6d9 0%, #f6dca6 30%, #e0a95c 55%, #f3d492 78%, #a9743a 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  -webkit-text-stroke:1.4px #140b06;
+  filter:
+    drop-shadow(0 1px 0 #3a230f)
+    drop-shadow(0 2px 1px rgba(0,0,0,.85))
+    drop-shadow(0 0 6px rgba(0,0,0,.6));
+}
+
+/* ============ NAV RUBRIQUES — bandeau transféré en bas ============ */
+.rubrique-nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  display:flex; gap:6px; padding:8px 10px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));
+  background:#170f08;
+  border-top:1px solid rgba(201,168,118,.3);
+  box-shadow:0 -4px 14px rgba(0,0,0,.5);
+}
+.rubrique-nav a{
+  flex:1; text-align:center; padding:8px 4px;
+  font-family:'Press Start 2P', monospace; font-size:9px; letter-spacing:.03em;
+  color:var(--parchment); opacity:.55; border-radius:4px; text-decoration:none;
+}
+.rubrique-nav a[aria-current="page"]{ opacity:1; background:rgba(201,168,118,.15); color:var(--brass-light); }
+
+/* ============ SYSTEME DE PANNEAU 9-SLICE ============ */
+.panel{
+  position:relative;
+  display:grid;
+  grid-template-columns: var(--panel-corner) 1fr var(--panel-corner);
+  grid-template-rows: var(--panel-corner) auto var(--panel-corner);
+  width:100%;
+}
+.panel-corner, .panel-edge, .panel-content{
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+}
+.panel-corner.top-left{ grid-column:1; grid-row:1; background-image:url("assets/panel/01-haut-gauche.png"); }
+.panel-edge.top{ grid-column:2; grid-row:1; background-image:url("assets/panel/02-haut.png"); }
+.panel-corner.top-right{ grid-column:3; grid-row:1; background-image:url("assets/panel/03-haut-droite.png"); }
+.panel-edge.left{ grid-column:1; grid-row:2; background-image:url("assets/panel/04-gauche.png"); }
+.panel-content{ grid-column:2; grid-row:2; background-image:url("assets/panel/05-centre.png"); padding:14px 16px; }
+.panel-edge.right{ grid-column:3; grid-row:2; background-image:url("assets/panel/06-droite.png"); }
+.panel-corner.bottom-left{ grid-column:1; grid-row:3; background-image:url("assets/panel/07-bas-gauche.png"); }
+.panel-edge.bottom{ grid-column:2; grid-row:3; background-image:url("assets/panel/08-bas.png"); }
+.panel-corner.bottom-right{ grid-column:3; grid-row:3; background-image:url("assets/panel/09-bas-droite.png"); }
+
+/* ============ BOUTONS COMMUNS ============ */
+.btn-dnd{
+  font-family:'Press Start 2P', monospace; font-size:9px; letter-spacing:.03em;
+  text-transform:uppercase; text-align:center;
+  padding:10px 14px; border-radius:5px; cursor:pointer;
+  border:2px solid var(--oak-900);
+  background:linear-gradient(180deg, var(--brass-light), var(--brass));
+  color:var(--oak-900); font-weight:bold;
+  box-shadow:0 4px 0 #7a5c2e, 0 6px 10px rgba(0,0,0,.5);
+  transition:transform .12s ease, box-shadow .12s ease, filter .15s ease;
+}
+.btn-dnd:hover{ filter:drop-shadow(0 0 8px var(--brass-light)); }
+.btn-dnd:active{ transform:translateY(3px); box-shadow:0 1px 0 #7a5c2e, 0 2px 6px rgba(0,0,0,.5); }
+.btn-dnd:disabled{ opacity:.4; cursor:not-allowed; filter:none; }
+.btn-dnd--ghost{
+  background:var(--oak-800); color:var(--parchment);
+  border-color:var(--brass); box-shadow:0 4px 0 #0d0904, 0 6px 10px rgba(0,0,0,.5);
+}
+.btn-dnd--ghost:active{ box-shadow:0 1px 0 #0d0904, 0 2px 6px rgba(0,0,0,.5); }
+.btn-dnd--small{ padding:7px 10px; font-size:8px; }
+.btn-dnd--danger{
+  background:linear-gradient(180deg, #d9645a, var(--danger));
+  color:#2a0805; border-color:#5a1109;
+  box-shadow:0 4px 0 #5a1109, 0 6px 10px rgba(0,0,0,.5);
+}
+.btn-dnd--danger:active{ box-shadow:0 1px 0 #5a1109, 0 2px 6px rgba(0,0,0,.5); }

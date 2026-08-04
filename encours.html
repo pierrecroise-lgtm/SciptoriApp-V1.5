@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>En cours — ScriptoriApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Cinzel:wght@800&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  /* encours.html reste autonome : tout son CSS et son JS spécifiques
+     sont ici (et dans encours-app.js). La topbar-image, le bandeau de
+     nav et les boutons .btn-dnd viennent de common.css. */
+
+  body{ font-size:19px; }
+
+  /* ============ SCENE ============ */
+  .encours-scene{
+    position:relative; min-height:100vh;
+    background-image:linear-gradient(rgba(23,15,8,.48), rgba(23,15,8,.72)), url('images/encours-bg.png');
+    background-size:cover; background-position:center top; background-repeat:no-repeat; background-attachment:fixed;
+    background-color:#170f08;
+  }
+  .encours-content{ max-width:560px; margin:0 auto; padding:16px 14px 110px; }
+
+  /* ============ PLAQUE NIVEAU / XP ============ */
+  .niveau-plaque{
+    margin:0 0 18px; padding:14px;
+    background:linear-gradient(180deg, var(--oak-800), var(--oak-900));
+    border:2px solid var(--brass); border-radius:4px;
+    box-shadow:0 4px 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(232,205,148,.12);
+  }
+  .niveau-plaque__row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
+  .niveau-plaque__label{ font-family:'Press Start 2P', monospace; font-size:11px; color:var(--brass-light); }
+  .niveau-plaque__xp{ font-size:16px; color:var(--parchment); opacity:.85; }
+  .xp-bar{ height:14px; border-radius:7px; background:rgba(0,0,0,.4); border:1px solid rgba(232,205,148,.3); overflow:hidden; }
+  .xp-bar__fill{ height:100%; background:linear-gradient(90deg, var(--xp-green), #8fe06a); transition:width .4s ease; }
+  .niveau-plaque__next{ margin-top:6px; font-size:13px; color:var(--parchment); opacity:.65; }
+
+  /* ============ CARTE LIVRE EN COURS ============ */
+  .livre-card{
+    display:flex; gap:14px;
+    background:linear-gradient(160deg, #2f2013, #1c1209);
+    border:2px solid var(--brass); border-radius:6px; padding:14px;
+    box-shadow:0 4px 0 rgba(0,0,0,.4), 0 8px 16px rgba(0,0,0,.4);
+    margin-bottom:18px;
+  }
+.livre-card{ cursor:pointer; }
+.livre-card:focus-visible{ outline:2px solid var(--glow-cyan); outline-offset:2px; }
+.tap-hint{
+  text-align:center; font-size:14px; color:var(--parchment); opacity:.6;
+  margin:-6px 0 18px; font-style:italic;
+}
+.seance-form textarea{
+  font-family:'VT323', monospace; font-size:18px; padding:8px 10px;
+  border:2px solid var(--brass); border-radius:4px; background:#150e07; color:var(--parchment);
+  width:100%; resize:vertical; box-sizing:border-box;
+}
+  .livre-card__cover{
+    flex:none; width:76px; height:108px; border-radius:3px;
+    border:2px solid var(--oak-900); background:var(--navy);
+    background-size:cover; background-position:center;
+  }
+  .livre-card__body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+  .livre-card__title{ font-family:'Press Start 2P', monospace; font-size:12px; color:var(--brass-light); line-height:1.4; }
+  .livre-card__author{ font-size:17px; font-style:italic; color:var(--parchment); opacity:.85; }
+  .livre-card__progress-text{ margin-top:6px; font-size:15px; }
+  .progress-bar{ height:10px; border-radius:5px; background:rgba(0,0,0,.4); border:1px solid rgba(201,168,118,.4); overflow:hidden; margin-top:4px; }
+  .progress-bar__fill{ height:100%; background:linear-gradient(90deg, var(--book-blue), var(--glow-cyan)); transition:width .4s ease; }
+
+  /* ============ FORMULAIRE DE SEANCE ============ */
+  .seance-form{
+    background:linear-gradient(180deg, var(--oak-800), var(--oak-900));
+    border:2px solid var(--brass); border-radius:6px; padding:16px;
+  }
+  .seance-form h2{ font-size:12px; color:var(--brass-light); margin:0 0 14px; }
+  .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+  .field label{ font-size:15px; color:var(--brass-light); }
+  .field input{
+    font-family:'VT323', monospace; font-size:20px; padding:8px 10px;
+    border:2px solid var(--brass); border-radius:4px; background:#150e07; color:var(--parchment);
+  }
+  /* .btn-dnd de base vient de common.css — ici on l'étire en pleine largeur
+     dans le contexte du formulaire de séance. */
+  #content-area .btn-dnd{ width:100%; }
+  .btn-dnd--ghost{ margin-top:10px; }
+
+  /* ============ FEEDBACK APRES SEANCE ============ */
+  .seance-feedback{
+    display:none; margin-top:14px; padding:12px 14px;
+    background:rgba(111,191,79,.12); border:2px solid var(--xp-green); border-radius:6px;
+    font-size:16px; text-align:center;
+  }
+  .seance-feedback.is-visible{ display:block; }
+  .seance-feedback strong{ color:var(--xp-green); }
+
+  /* ============ ETAT VIDE ============ */
+  .empty-state{
+    text-align:center; padding:60px 20px;
+    background:linear-gradient(180deg, var(--oak-800), var(--oak-900));
+    border:2px solid var(--brass); border-radius:6px;
+  }
+  .empty-state p{ font-size:17px; color:var(--parchment); opacity:.8; margin-bottom:18px; }
+  .empty-state a.btn-dnd{ display:inline-block; width:auto; text-decoration:none; padding:12px 24px; }
+</style>
+</head>
+<body>
+
+  <nav class="topbar-rubrique">
+    <img src="images/topbar-bg.png" alt="">
+    <h1 class="page-title">Salle de lecture</h1>
+  </nav>
+
+  <main class="encours-scene">
+    <div class="encours-content">
+
+      <div class="niveau-plaque">
+        <div class="niveau-plaque__row">
+          <span class="niveau-plaque__label" id="niveau-label">Niveau 1</span>
+          <span class="niveau-plaque__xp" id="niveau-xp">0 XP</span>
+        </div>
+        <div class="xp-bar"><div class="xp-bar__fill" id="xp-bar-fill" style="width:0%"></div></div>
+        <div class="niveau-plaque__next" id="niveau-next"></div>
+      </div>
+
+      <div id="content-area"></div>
+
+    </div>
+  </main>
+
+  <nav class="rubrique-nav" aria-label="Rubriques">
+    <a href="index.html">Antre</a>
+    <a href="reserve.html">Réserve</a>
+    <a href="encours.html" aria-current="page">En cours</a>
+  </nav>
+
+  <script type="module" src="encours-app.js"></script>
+</body>
+</html>

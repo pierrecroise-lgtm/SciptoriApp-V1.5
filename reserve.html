@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>La Réserve — ScriptoriApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Cinzel:wght@800&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  /* reserve.html reste autonome : tout son CSS et son JS spécifiques
+     sont ici (et dans reserve-app.js). Seuls la topbar-image, le
+     panneau 9-slice, le bandeau de nav et les boutons .btn-dnd
+     viennent de common.css. */
+
+  body{ font-size:19px; }
+
+  /* ============ SCENE ============ */
+  .reserve-scene{
+    position:relative; min-height:100vh;
+    background:
+      linear-gradient(180deg, rgba(10,6,3,.5) 0%, rgba(10,6,3,.2) 20%, rgba(10,6,3,.75) 100%),
+      url('images/reserve-bg.png');
+    background-size:cover;
+    background-position:center bottom;
+    background-repeat:no-repeat;
+  }
+  .reserve-content{ max-width:720px; margin:0 auto; padding:16px 14px 130px; }
+
+  /* ============ PLAQUE EVOLUTIVE ============ */
+  .evolutive-plaque{
+    display:flex; align-items:center; gap:10px;
+    margin:0 0 18px; padding:12px 14px;
+    background:linear-gradient(180deg, var(--oak-800), var(--oak-900));
+    border:2px solid var(--brass);
+    border-radius:4px;
+    box-shadow:0 4px 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(232,205,148,.12);
+  }
+  .evolutive-plaque__icon{ flex:none; width:22px; height:22px; color:var(--brass-light); opacity:.9; }
+  .evolutive-plaque__text{ font-size:15px; line-height:1.35; color:var(--parchment); }
+  .evolutive-plaque__text strong{ color:var(--brass-light); }
+
+  /* ============ ONGLETS (images) ============ */
+  .ribbon-tabs{ display:flex; gap:10px; padding:0 2px; margin-bottom:14px; }
+  .ribbon-tab-img{
+    flex:1; border:none; background:none; padding:0; cursor:pointer;
+    opacity:.55; transition:opacity .15s ease, transform .15s ease;
+    filter:drop-shadow(0 4px 0 rgba(0,0,0,.4));
+  }
+  .ribbon-tab-img img{ width:100%; display:block; }
+  .ribbon-tab-img[aria-selected="true"]{ opacity:1; transform:translateY(-2px); filter:drop-shadow(0 6px 10px rgba(0,0,0,.5)); }
+
+  /* ============ TRI (image + select superposé) ============ */
+  .filters-bar{ display:flex; justify-content:flex-end; margin:0 2px 16px; }
+  .sort-trigger{ position:relative; width:132px; cursor:pointer; }
+  .sort-trigger img{ width:100%; display:block; }
+  .sort-trigger select{
+    position:absolute; inset:0; width:100%; height:100%;
+    opacity:0; border:none; cursor:pointer;
+  }
+
+  /* ============ LISTE DE GRIMOIRES (panneaux 9-slice) ============ */
+  .grimoire-list{ display:flex; flex-direction:column; gap:22px; margin-top:2px; list-style:none; padding:0; }
+
+  .grimoire-card{ display:flex; justify-content:center; }
+  .grimoire-card .panel{ max-width:70vw; margin:0 auto; }
+  @media (max-width:640px){
+    .grimoire-card .panel{ max-width:94vw; } /* le seuil 70vw écrase trop le contenu sur mobile portrait */
+  }
+
+  .book-row{ display:flex; gap:12px; align-items:flex-start; }
+  .book-row__cover{
+    flex:none; width:64px; height:92px; border-radius:3px;
+    border:2px solid var(--oak-900); background:var(--navy);
+    background-size:cover; background-position:center;
+  }
+  .book-row__body{ flex:1; min-width:0; color:var(--ink); }
+  .book-row__title{
+    margin:0; font-family:"Georgia", serif; font-weight:800;
+    font-size:17px; line-height:1.25; color:var(--ink);
+  }
+  .book-row__author{ margin:2px 0 0; font-size:14px; font-style:italic; color:#4a3420; opacity:.9; }
+  .book-row__meta{ margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .tag--light{
+    font-size:11px; padding:2px 8px; border-radius:10px;
+    background:rgba(42,28,16,.08); border:1px solid rgba(74,36,16,.35);
+    color:var(--ink); white-space:nowrap;
+  }
+  .tag--light.tag--progress{ background:var(--xp-green); border-color:#4c8a34; color:#0e2409; font-weight:bold; }
+  .book-row__divider{
+    height:1px; margin:8px 0;
+    background:linear-gradient(to right, transparent, #9b662c 15%, #9b662c 85%, transparent);
+    opacity:.55;
+  }
+  .book-row__synopsis{
+    margin:0; font-size:14px; line-height:1.35; color:#3a2812; font-style:italic;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .book-row__actions{ flex:none; display:flex; flex-direction:column; gap:8px; }
+  .icon-action-btn{
+    width:36px; height:36px; padding:0; border:none; background:none; cursor:pointer;
+    transition:transform .12s ease;
+  }
+  .icon-action-btn img{ width:100%; height:100%; display:block; }
+  .icon-action-btn:active{ transform:scale(.92); }
+
+  .card-actions{ display:flex; gap:8px; margin-top:8px; }
+  .empty-state{ text-align:center; padding:40px 16px; color:var(--parchment); font-style:italic; opacity:.7; }
+
+  /* ============ FAB (relevé au-dessus du bandeau de nav) ============ */
+  .fab-add{
+    position:fixed; left:50%; bottom:74px; transform:translateX(-50%); z-index:35;
+    display:flex; align-items:center; gap:8px;
+  }
+  .fab-add svg{ width:14px; height:14px; }
+
+  /* ============ MODALE ============ */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:60; background:rgba(10,7,4,.78);
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.is-open{ display:flex; }
+  .modal-sheet{
+    width:100%; max-width:480px; max-height:88vh; overflow-y:auto;
+    background:linear-gradient(160deg,#2f2013,var(--oak-900));
+    border-top:3px solid var(--brass); border-radius:10px 10px 0 0;
+    padding:18px 18px 26px; box-shadow:0 -8px 30px rgba(0,0,0,.6);
+  }
+  .modal-sheet__handle{ width:40px; height:4px; background:rgba(232,205,148,.3); border-radius:2px; margin:0 auto 14px; }
+  .modal-sheet h2{ font-size:13px; margin:0 0 16px; color:var(--brass-light); text-align:center; }
+  .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+  .field label{ font-size:15px; color:var(--brass-light); }
+  .field input, .field select, .field textarea{
+    font-family:'VT323', monospace; font-size:18px; padding:8px 10px;
+    border:2px solid var(--brass); border-radius:4px; background:#150e07; color:var(--parchment);
+    resize:vertical;
+  }
+  .field-hint{ font-size:12px; color:var(--parchment); opacity:.55; text-align:right; }
+  .form-actions{ display:flex; gap:10px; margin-top:16px; }
+  .form-actions .btn-dnd{ flex:1; }
+
+  .illustration-picker{
+    display:flex; flex-direction:column; gap:8px;
+    padding:10px; background:rgba(0,0,0,.18);
+    border:1px solid rgba(201,168,118,.35); border-radius:5px;
+  }
+  .illustration-picker input[type=file]{ padding:7px; font-size:16px; }
+  .illustration-preview{
+    display:none; align-items:center; gap:10px;
+    min-height:82px; padding:8px;
+    border:1px solid rgba(201,168,118,.3); border-radius:4px;
+    background:#150e07;
+  }
+  .illustration-preview.is-visible{ display:flex; }
+  .illustration-preview img{
+    width:54px; height:76px; object-fit:cover; image-rendering:pixelated;
+    border:1px solid var(--brass); border-radius:2px; background:#1c1209;
+  }
+  .illustration-preview span{ font-size:15px; line-height:1.25; color:var(--parchment); opacity:.85; }
+  .illustration-status{ min-height:18px; font-size:14px; color:var(--brass-light); }
+
+  @media (min-width:640px){ .reserve-content{ padding-top:26px; } }
+</style>
+</head>
+<body>
+
+  <nav class="topbar-rubrique">
+    <img src="images/topbar-bg.png" alt="">
+    <h1 class="page-title">Réserve</h1>
+  </nav>
+
+  <main class="reserve-scene">
+    <div class="reserve-content">
+
+      <p class="evolutive-plaque">
+        <svg class="evolutive-plaque__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+        </svg>
+        <span class="evolutive-plaque__text" id="evolutive-phrase">Chargement de ta Réserve…</span>
+      </p>
+
+      <div class="ribbon-tabs" role="tablist" aria-label="Sections de la Réserve">
+        <button class="ribbon-tab-img" id="tab-bibliotheque" role="tab" aria-selected="true" aria-controls="panel-bibliotheque" type="button">
+          <img src="images/button-bibliotheque.png" alt="Bibliothèque">
+        </button>
+        <button class="ribbon-tab-img" id="tab-archives" role="tab" aria-selected="false" aria-controls="panel-archives" type="button">
+          <img src="images/button-archives.png" alt="Archives">
+        </button>
+      </div>
+
+      <div class="filters-bar">
+        <div class="sort-trigger">
+          <img src="images/button-trier.png" alt="Trier par">
+          <select id="sort-select" aria-label="Trier par">
+            <option value="none">Trier par…</option>
+            <option value="author">Auteur</option>
+            <option value="genre">Genre littéraire</option>
+          </select>
+        </div>
+      </div>
+
+      <section id="panel-bibliotheque" role="tabpanel" aria-labelledby="tab-bibliotheque">
+        <ul class="grimoire-list" id="bibliotheque-list"></ul>
+      </section>
+
+      <section id="panel-archives" role="tabpanel" aria-labelledby="tab-archives" hidden>
+        <ul class="grimoire-list" id="archives-list"></ul>
+      </section>
+
+    </div>
+  </main>
+
+  <button class="fab-add btn-dnd" id="open-add-modal" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14" /></svg>
+    Ajouter un Grimoire
+  </button>
+
+  <nav class="rubrique-nav" aria-label="Rubriques">
+    <a href="index.html">Antre</a>
+    <a href="reserve.html" aria-current="page">Réserve</a>
+    <a href="encours.html">En cours</a>
+  </nav>
+
+  <div class="modal-overlay" id="modal-manual">
+    <div class="modal-sheet">
+      <div class="modal-sheet__handle"></div>
+      <h2 id="modal-title">Ajouter un Grimoire</h2>
+      <form id="manual-form">
+        <div class="field">
+          <label for="f-title">Titre</label>
+          <input id="f-title" name="title" type="text" required />
+        </div>
+        <div class="field">
+          <label for="f-author">Auteur</label>
+          <input id="f-author" name="author" type="text" required />
+        </div>
+        <div class="field">
+          <label for="f-pages">Nombre de pages</label>
+          <input id="f-pages" name="pageCount" type="number" min="1" required />
+        </div>
+        <div class="field">
+          <label for="f-genre">Genre littéraire</label>
+          <select id="f-genre" name="genre" required>
+            <option value="fantasy">Fantasy</option>
+            <option value="science-fiction">Science-fiction</option>
+            <option value="medieval-fantastique">Médiéval fantastique</option>
+            <option value="thriller">Thriller</option>
+            <option value="policier">Policier</option>
+            <option value="biographie">Biographie</option>
+            <option value="philosophie">Philosophie</option>
+            <option value="aventure">Aventure</option>
+            <option value="classique">Classique</option>
+            <option value="theatre">Théâtre</option>
+            <option value="poesie">Poésie</option>
+            <option value="essai">Essai</option>
+            <option value="ouvrage-prime">Ouvrage primé</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-synopsis">Résumé</label>
+          <textarea id="f-synopsis" name="synopsis" maxlength="120" rows="2" placeholder="Une phrase qui résume l'histoire…"></textarea>
+          <span class="field-hint"><span id="synopsis-count">0</span>/120</span>
+        </div>
+        <div class="field">
+          <label for="f-provenance">Provenance</label>
+          <select id="f-provenance" name="provenance">
+            <option value="achete">Acheté</option>
+            <option value="cadeau">Cadeau</option>
+            <option value="emprunt">Emprunt</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-illustration">Illustration du Grimoire</label>
+          <div class="illustration-picker">
+            <input id="f-illustration" name="illustration" type="file" accept="image/*" />
+            <div class="illustration-preview" id="illustration-preview">
+              <img id="illustration-preview-img" alt="Aperçu de l’illustration" />
+              <span id="illustration-preview-text">Illustration pixel art prête.</span>
+            </div>
+            <div class="illustration-status" id="illustration-status" aria-live="polite"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-destination">Destination</label>
+          <select id="f-destination" name="destination">
+            <option value="backlog">Bibliothèque (à lire)</option>
+            <option value="finished">Archives (déjà lu, hors XP)</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button class="btn-dnd btn-dnd--ghost" id="cancel-manual" type="button">Annuler</button>
+          <button class="btn-dnd btn-dnd--danger" id="delete-manual" type="button" hidden>Supprimer</button>
+          <button class="btn-dnd" id="modal-submit-btn" type="submit">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-notes">
+    <div class="modal-sheet">
+      <div class="modal-sheet__handle"></div>
+      <h2 id="notes-modal-title">Notes de lecture</h2>
+      <div class="field">
+        <label for="f-notes">Tes notes</label>
+        <textarea id="f-notes" rows="7" placeholder="Ecris tes impressions, citations, réflexions…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-dnd btn-dnd--ghost" id="cancel-notes" type="button">Fermer</button>
+        <button class="btn-dnd" id="save-notes-btn" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="reserve-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "ScriptoriApp",
+  "short_name": "Scriptori",
+  "description": "Suivi de lecture gamifié à l'esthétique médiévale-fantastique.",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#1c1209",
+  "theme_color": "#c9a876",
+  "icons": [
+    { "src": "images/avatar-lvl1.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "images/avatar-lvl1.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
