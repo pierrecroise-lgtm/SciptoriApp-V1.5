@@ -96,9 +96,10 @@ h1,h2,h3,.pixel{ font-family:'Press Start 2P', monospace; letter-spacing:1px; }
 .panel{
   position:relative;
   display:grid;
-  grid-template-columns: var(--panel-corner) 1fr var(--panel-corner);
+  grid-template-columns: var(--panel-corner) minmax(0,1fr) var(--panel-corner);
   grid-template-rows: var(--panel-corner) auto var(--panel-corner);
   width:100%;
+  min-width:0;
 }
 .panel-corner, .panel-edge, .panel-content{
   background-repeat:no-repeat;
