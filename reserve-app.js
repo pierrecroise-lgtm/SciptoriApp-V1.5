@@ -84,6 +84,10 @@ function schedulePlaqueCollapse(delay = 4000) {
   clearTimeout(plaqueCollapseTimer);
   plaqueCollapseTimer = setTimeout(() => els.plaque.classList.add('collapsed'), delay);
 }
+window.addEventListener('scroll', () => {
+  if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+}, { passive: true });
+
 window.addEventListener('load', () => schedulePlaqueCollapse(4000));
 els.topbarHitbox.addEventListener('click', () => {
   const willExpand = els.plaque.classList.contains('collapsed');
