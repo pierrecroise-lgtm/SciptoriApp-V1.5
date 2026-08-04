@@ -76,7 +76,6 @@ export async function addBook(bookData) {
     provenance: bookData.provenance,
     coverUrl: bookData.coverUrl || '',
     synopsis: bookData.synopsis || '',
-    notes: bookData.notes || '',
     status: bookData.status || 'backlog',
     countsForXp: bookData.countsForXp !== false,
     arcanesLevel: bookData.arcanesLevel || 1,
