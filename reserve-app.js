@@ -92,12 +92,37 @@ els.topbarHitbox.addEventListener('click', () => {
   else clearTimeout(plaqueCollapseTimer);
 });
 
-// ---- Carrousel : met en avant la carte la plus proche du haut --------------
+// ---- Carrousel : boucle infinie + mise en avant de la carte la plus proche du haut --
+
+// La liste DOM est triplée (copie1 + copie2 + copie3) : l'utilisateur reste
+// toujours visuellement dans la copie du milieu, et dès qu'il s'approche du
+// début ou de la fin de cette copie, on retranche/rajoute silencieusement la
+// hauteur d'une copie à scrollTop (saut instantané, imperceptible puisque les
+// trois copies sont identiques) — donnant l'illusion d'un défilement infini.
+function buildLoopedListHtml(items, renderFn, emptyHtml) {
+  if (!items.length) return emptyHtml;
+  const html = items.map(renderFn).join('');
+  return html + html + html;
+}
 
 function initCarouselFocus(container) {
   let ticking = false;
+  let loopReady = false;
+
   function update() {
     ticking = false;
+
+    if (loopReady) {
+      const copyHeight = container.scrollHeight / 3;
+      if (copyHeight > 0) {
+        if (container.scrollTop < copyHeight * 0.5) {
+          container.scrollTop += copyHeight;
+        } else if (container.scrollTop > copyHeight * 1.5) {
+          container.scrollTop -= copyHeight;
+        }
+      }
+    }
+
     const containerTop = container.getBoundingClientRect().top;
     let closest = null;
     let closestDist = Infinity;
@@ -109,9 +134,18 @@ function initCarouselFocus(container) {
       card.classList.toggle('is-focused', card === closest);
     });
   }
+
   container.addEventListener('scroll', () => {
     if (!ticking) { ticking = true; requestAnimationFrame(update); }
   });
+
+  // Point de départ : le début de la copie du milieu, pour avoir de la marge
+  // pour boucler dans les deux sens dès le premier scroll.
+  const hasCards = container.querySelector('.grimoire-card');
+  if (hasCards && container.scrollHeight > 0) {
+    container.scrollTop = container.scrollHeight / 3;
+    loopReady = true;
+  }
   update();
 }
 
@@ -125,13 +159,17 @@ function renderTabContent(books) {
   const biblio = sortBooks(books.filter((b) => b.status === 'backlog' || b.status === 'reading'));
   const archives = sortBooks(books.filter((b) => b.status === 'finished'));
 
-  els.listBiblio.innerHTML = biblio.length
-    ? biblio.map(renderBiblioCard).join('')
-    : '<li class="empty-state">Aucun ouvrage en attente. La Bibliothèque respire.</li>';
+  els.listBiblio.innerHTML = buildLoopedListHtml(
+    biblio,
+    renderBiblioCard,
+    '<li class="empty-state">Aucun ouvrage en attente. La Bibliothèque respire.</li>'
+  );
 
-  els.listArchives.innerHTML = archives.length
-    ? archives.map(renderArchiveCard).join('')
-    : '<li class="empty-state">Aucun ouvrage achevé pour l\'instant.</li>';
+  els.listArchives.innerHTML = buildLoopedListHtml(
+    archives,
+    renderArchiveCard,
+    '<li class="empty-state">Aucun ouvrage achevé pour l\'instant.</li>'
+  );
 
   els.listBiblio.querySelectorAll('[data-start-id]').forEach((btn) => {
     btn.addEventListener('click', () => startReading(btn.dataset.startId));
