@@ -15,8 +15,13 @@
 
   /* La page ne scrolle plus dans son ensemble : le fond (reserve-bg.png)
      garde toujours la taille de l'écran, seul le carrousel de livres
-     défile en interne. */
-  html, body{ height:100%; overflow:hidden; }
+     défile en interne. `overflow:hidden` seul ne suffit pas sur mobile
+     (Safari peut laisser la page "rebondir" d'un scroll résiduel au moment
+     du reflow, quand la liste passe de "chargement" à son contenu réel —
+     ce qui poussait la topbar hors de l'écran). `position:fixed` sur html
+     et body est la manière robuste d'empêcher tout scroll de page, même
+     pendant un reflow brutal du contenu. */
+  html, body{ position:fixed; inset:0; width:100%; height:100%; overflow:hidden; margin:0; }
   body{ font-size:19px; display:flex; flex-direction:column; }
 
   /* ============ SCENE (fond fixe, jamais déformé) ============ */
