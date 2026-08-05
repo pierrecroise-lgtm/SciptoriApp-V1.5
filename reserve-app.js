@@ -112,45 +112,57 @@ function buildLoopedListHtml(items, renderFn, emptyHtml) {
 function initCarouselFocus(container) {
   let ticking = false;
   let loopReady = false;
+  let settleTimer = null;
+  let cachedCards = [];
 
-  function update() {
+  function refreshCache() {
+    cachedCards = Array.from(container.querySelectorAll('.grimoire-card'));
+  }
+
+  function updateFocus() {
     ticking = false;
-
-    if (loopReady) {
-      const copyHeight = container.scrollHeight / 3;
-      if (copyHeight > 0) {
-        if (container.scrollTop < copyHeight * 0.5) {
-          container.scrollTop += copyHeight;
-        } else if (container.scrollTop > copyHeight * 1.5) {
-          container.scrollTop -= copyHeight;
-        }
-      }
-    }
-
     const containerTop = container.getBoundingClientRect().top;
     let closest = null;
     let closestDist = Infinity;
-    container.querySelectorAll('.grimoire-card').forEach((card) => {
+    cachedCards.forEach((card) => {
       const dist = Math.abs(card.getBoundingClientRect().top - containerTop);
       if (dist < closestDist) { closestDist = dist; closest = card; }
     });
-    container.querySelectorAll('.grimoire-card').forEach((card) => {
+    cachedCards.forEach((card) => {
       card.classList.toggle('is-focused', card === closest);
     });
   }
 
+  // Le saut de boucle (scrollTop +/- une hauteur de copie) ne se déclenche
+  // qu'une fois le scroll stabilisé (120ms sans event) : le faire pendant un
+  // scroll actif/rapide entre en conflit avec l'inertie native du navigateur
+  // et provoque un tremblement visible.
+  function wrapIfSettled() {
+    if (!loopReady) return;
+    const copyHeight = container.scrollHeight / 3;
+    if (copyHeight <= 0) return;
+    if (container.scrollTop < copyHeight * 0.5) {
+      container.scrollTop += copyHeight;
+    } else if (container.scrollTop > copyHeight * 1.5) {
+      container.scrollTop -= copyHeight;
+    }
+  }
+
   container.addEventListener('scroll', () => {
-    if (!ticking) { ticking = true; requestAnimationFrame(update); }
-  });
+    if (!ticking) { ticking = true; requestAnimationFrame(updateFocus); }
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(wrapIfSettled, 120);
+  }, { passive: true });
+
+  refreshCache();
 
   // Point de départ : le début de la copie du milieu, pour avoir de la marge
   // pour boucler dans les deux sens dès le premier scroll.
-  const hasCards = container.querySelector('.grimoire-card');
-  if (hasCards && container.scrollHeight > 0) {
+  if (cachedCards.length && container.scrollHeight > 0) {
     container.scrollTop = container.scrollHeight / 3;
     loopReady = true;
   }
-  update();
+  updateFocus();
 }
 
 function sortBooks(list) {
@@ -176,17 +188,32 @@ function renderTabContent(books) {
   );
 
   els.listBiblio.querySelectorAll('[data-start-id]').forEach((btn) => {
-    btn.addEventListener('click', () => startReading(btn.dataset.startId));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startReading(btn.dataset.startId);
+    });
   });
 
   document.querySelectorAll('[data-edit-id]').forEach((btn) => {
-    btn.addEventListener('click', (e) => openEditModal(e.currentTarget.dataset.editId));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditModal(e.currentTarget.dataset.editId);
+    });
   });
 
   document.querySelectorAll('[data-notes-id]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const book = getBooks().find((b) => b.id === e.currentTarget.dataset.notesId);
       if (book) openNotesOverlay(book, currentSeances);
+    });
+  });
+
+  document.querySelectorAll('.grimoire-card .panel').forEach((panelEl) => {
+    panelEl.addEventListener('click', () => {
+      const card = panelEl.closest('.grimoire-card');
+      if (!card.classList.contains('is-focused')) return; // seule la carte en focus réagit au tap
+      card.classList.toggle('is-revealed');
     });
   });
 
