@@ -1,0 +1,144 @@
+/* ============================================================
+   ScriptoriApp — style.css
+   Feuille de style COMMUNE à toutes les pages (home, rubriques…)
+   Contient : variables, reset, typographie, composants partagés
+   (boutons, parchemins, badges). Chaque page peut ensuite ajouter
+   son propre <style> pour ses besoins spécifiques.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Cormorant+Garamond:wght@500;600;700&family=EB+Garamond:ital@0;1&display=swap');
+
+:root{
+  /* -- Palette : chêne sombre / parchemin / sceau -- */
+  --oak-950:#1b120a;
+  --oak-900:#241809;
+  --oak-800:#3a2413;
+  --oak-700:#4f331c;
+  --oak-600:#6b4423;
+
+  --parchment-100:#f4e8c8;
+  --parchment-200:#ecd8a4;
+  --parchment-300:#e0c37e;
+  --parchment-400:#c9ac6f;
+  --parchment-ink:#3a2711;
+
+  --gold:#c9a227;
+  --gold-bright:#e8c766;
+  --seal:#7a2323;
+  --seal-dark:#5a1919;
+
+  --ok:#4c7a3a;
+
+  --font-display:'Press Start 2P', monospace;
+  --font-body:'Cormorant Garamond', 'EB Garamond', serif;
+
+  --radius-sm:4px;
+  --radius-md:8px;
+
+  --shadow-deep:0 6px 18px rgba(0,0,0,.45);
+  --shadow-soft:0 3px 8px rgba(0,0,0,.3);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  padding:0;
+  min-height:100%;
+  background:var(--oak-950);
+  color:var(--parchment-ink);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+}
+
+body{
+  background:
+    radial-gradient(ellipse at top, rgba(201,162,39,.06), transparent 60%),
+    var(--oak-950);
+}
+
+img{ max-width:100%; display:block; }
+
+button{
+  font-family:inherit;
+  cursor:pointer;
+  border:none;
+  background:none;
+  color:inherit;
+}
+
+input{
+  font-family:var(--font-body);
+}
+
+ul,ol{ list-style:none; margin:0; padding:0; }
+
+::-webkit-scrollbar{ width:8px; }
+::-webkit-scrollbar-track{ background:var(--oak-900); }
+::-webkit-scrollbar-thumb{ background:var(--oak-600); border-radius:4px; }
+
+.hidden{ display:none !important; }
+
+/* ---------- Titres façon gravure ---------- */
+.rune-title{
+  font-family:var(--font-display);
+  font-size:.7rem;
+  letter-spacing:.04em;
+  color:var(--gold-bright);
+  text-shadow:0 2px 0 rgba(0,0,0,.6);
+}
+
+/* ---------- Bouton "parchemin" partagé ---------- */
+.btn-parchment{
+  display:inline-flex;
+  align-items:center;
+  gap:.4em;
+  padding:.55em 1em;
+  background:linear-gradient(180deg,var(--parchment-200),var(--parchment-400));
+  border:2px solid var(--oak-700);
+  border-radius:var(--radius-sm);
+  color:var(--parchment-ink);
+  font-family:var(--font-display);
+  font-size:.62rem;
+  letter-spacing:.02em;
+  box-shadow:var(--shadow-soft), inset 0 0 0 1px rgba(255,255,255,.25);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn-parchment:hover{
+  background:linear-gradient(180deg,var(--parchment-100),var(--parchment-300));
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-deep), inset 0 0 0 1px rgba(255,255,255,.35);
+}
+.btn-parchment:active{
+  transform:translateY(0);
+  filter:brightness(.95);
+}
+.btn-parchment.is-active{
+  background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+  box-shadow:0 0 0 2px var(--oak-900), var(--shadow-soft);
+}
+
+/* ---------- Panneau parchemin (encarts, listes) ---------- */
+.panel-parchment{
+  background:linear-gradient(180deg,var(--parchment-200),var(--parchment-300));
+  border:2px solid var(--oak-700);
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-deep), inset 0 0 12px rgba(90,60,20,.25);
+  color:var(--parchment-ink);
+}
+
+/* ---------- Badge de sceau (notes / niveaux d'Arcane) ---------- */
+.seal-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:2.2em;
+  height:2.2em;
+  padding:0 .3em;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--seal) 0%, var(--seal-dark) 70%);
+  color:var(--gold-bright);
+  font-family:var(--font-display);
+  font-size:.65rem;
+  box-shadow:var(--shadow-soft), inset 0 0 0 2px rgba(0,0,0,.3);
+}
