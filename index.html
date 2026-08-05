@@ -340,7 +340,7 @@ function tick(){
 tick();
 
 const glowColors = { encours:'#e0824a', reserve:'#4f8fe0', acquisition:'#6fbf4f', notes:'#a35fe0' };
-const ROUTES = { encours:'encours.html', reserve:'reserve.html' }; // acquisition/notes : pas encore construites (V2)
+const ROUTES = { encours:'encours.html', reserve:'reserve.html', notes:'notes.html' }; // acquisition : pas encore construite (V2)
 document.querySelectorAll('.grimoire').forEach(el=>{
   const type = el.dataset.grimoire;
   el.addEventListener('click', ()=>{
