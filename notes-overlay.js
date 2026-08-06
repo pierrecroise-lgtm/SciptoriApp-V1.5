@@ -17,14 +17,20 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function renderNoteEntry(seanceId, date, noteText) {
+function renderNoteEntryContent(seanceId, date, noteText, commentaireFinal) {
   return `
-    <div class="note-entry" data-seance-id="${escapeHtml(seanceId)}">
-      <div class="note-header">
-        <span class="note-date">${escapeHtml(date)}</span>
-        <button class="note-edit-btn" data-edit-seance="${escapeHtml(seanceId)}" type="button" aria-label="Modifier">✏️</button>
-      </div>
-      <div class="note-text" data-note-text>${escapeHtml(noteText)}</div>
+    <div class="note-header">
+      <span class="note-date">${commentaireFinal ? 'Mot de la fin — ' : ''}${escapeHtml(date)}</span>
+      <button class="note-edit-btn" data-edit-seance="${escapeHtml(seanceId)}" type="button" aria-label="Modifier">✏️</button>
+    </div>
+    <div class="note-text" data-note-text>${escapeHtml(noteText)}</div>
+  `;
+}
+
+function renderNoteEntry(seanceId, date, noteText, { commentaireFinal = false } = {}) {
+  return `
+    <div class="note-entry${commentaireFinal ? ' note-entry--final' : ''}" data-seance-id="${escapeHtml(seanceId)}">
+      ${renderNoteEntryContent(seanceId, date, noteText, commentaireFinal)}
     </div>
   `;
 }
@@ -51,7 +57,8 @@ function enterEditMode(btn) {
   if (!entry) return;
 
   const seanceId = entry.dataset.seanceId;
-  const date = entry.querySelector('.note-date')?.textContent || '';
+  const commentaireFinal = entry.classList.contains('note-entry--final');
+  const date = entry.querySelector('.note-date')?.textContent.replace('Mot de la fin — ', '') || '';
   const noteText = entry.querySelector('[data-note-text]')?.textContent || '';
 
   entry.innerHTML = renderNoteEditForm(seanceId, date, noteText);
@@ -67,7 +74,7 @@ function enterEditMode(btn) {
     const newNote = textarea.value.trim();
 
     // Mise à jour optimiste : l'interface est mise à jour immédiatement.
-    entry.innerHTML = renderNoteEntry(seanceId, date, newNote);
+    entry.innerHTML = renderNoteEntryContent(seanceId, date, newNote, commentaireFinal);
     attachEditButton(entry);
 
     // Firestore suit en arrière-plan ; une erreur n'empêche pas l'édition
@@ -78,7 +85,7 @@ function enterEditMode(btn) {
   });
 
   cancelBtn.addEventListener('click', () => {
-    entry.innerHTML = renderNoteEntry(seanceId, date, noteText);
+    entry.innerHTML = renderNoteEntryContent(seanceId, date, noteText, commentaireFinal);
     attachEditButton(entry);
   });
 }
@@ -89,10 +96,18 @@ function enterEditMode(btn) {
  * player-layer.js).
  */
 export function openNotesOverlay(livre, seances) {
-  const notes = (seances || [])
-    .filter((s) => s.livreId === livre.id && s.note && s.note.trim() !== '')
+  const notesLivre = (seances || []).filter(
+    (s) => s.livreId === livre.id && s.note && s.note.trim() !== ''
+  );
+
+  // Le commentaire final (rédigé à la fin du livre) est épinglé en tête,
+  // même s'il est chronologiquement la note la plus récente. Le reste
+  // suit l'ordre chronologique habituel (plus ancienne en premier).
+  const commentaireFinal = notesLivre.find((s) => s.type === 'commentaireFinal') || null;
+  const notes = notesLivre
+    .filter((s) => s.type !== 'commentaireFinal')
     .slice()
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // plus ancienne en premier
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
   const overlay = document.createElement('div');
   overlay.id = 'notes-overlay';
@@ -120,6 +135,11 @@ export function openNotesOverlay(livre, seances) {
       }
       #notes-overlay .note-entry{ padding:14px 0; border-bottom:1px dashed rgba(58,39,23,.3); }
       #notes-overlay .note-entry:last-child{ border-bottom:none; }
+      #notes-overlay .note-entry--final{
+        padding:14px; margin-bottom:16px; border:2px solid var(--brass, #c9a876);
+        border-radius:4px; background:rgba(201,168,118,.16);
+      }
+      #notes-overlay .note-entry--final .note-date{ color:#7a4a1a; }
       #notes-overlay .note-header{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
       #notes-overlay .note-date{ font-size:14px; color:#8a6a3a; margin-bottom:4px; font-weight:bold; }
       #notes-overlay .note-text{ font-size:19px; line-height:1.4; white-space:pre-wrap; }
@@ -139,9 +159,10 @@ export function openNotesOverlay(livre, seances) {
     <button class="notes-close" id="notes-close" type="button" aria-label="Fermer">✕</button>
     <div class="notes-scroll">
       <h2>${escapeHtml(livre.title)}<br>Notes de lecture</h2>
+      ${commentaireFinal ? renderNoteEntry(commentaireFinal.id, commentaireFinal.date, commentaireFinal.note, { commentaireFinal: true }) : ''}
       ${notes.length
         ? notes.map((n) => renderNoteEntry(n.id, n.date, n.note)).join('')
-        : '<p class="notes-empty">Aucune note pour ce livre pour l\'instant.</p>'}
+        : (!commentaireFinal ? '<p class="notes-empty">Aucune note pour ce livre pour l\'instant.</p>' : '')}
     </div>
   `;
 
