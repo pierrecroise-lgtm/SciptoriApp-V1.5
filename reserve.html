@@ -183,6 +183,9 @@
     resize:vertical;
   }
   .field-hint{ font-size:12px; color:var(--parchment); opacity:.55; text-align:right; }
+  .difficulte-etoiles{ display:flex; gap:6px; }
+  .difficulte-etoiles .etoile{ font-size:26px; line-height:1; cursor:pointer; opacity:.35; background:none; border:none; padding:0; color:var(--brass-light,#e8cd94); }
+  .difficulte-etoiles .etoile.is-active{ opacity:1; }
   .form-actions{ display:flex; gap:10px; margin-top:16px; }
   .form-actions .btn-dnd{ flex:1; }
 
@@ -303,6 +306,16 @@
             <option value="essai">Essai</option>
             <option value="ouvrage-prime">Ouvrage primé</option>
           </select>
+        </div>
+        <div class="field">
+          <label>Difficulté supposée</label>
+          <div class="difficulte-etoiles" id="f-difficulte-etoiles" role="radiogroup" aria-label="Difficulté supposée">
+            <button type="button" class="etoile" data-valeur="1">★</button>
+            <button type="button" class="etoile" data-valeur="2">★</button>
+            <button type="button" class="etoile" data-valeur="3">★</button>
+          </div>
+          <input type="hidden" id="f-difficulte" name="difficulte" value="1" />
+          <span class="field-hint">Ajustable plus tard, en cours de lecture, dès 60 pages lues.</span>
         </div>
         <div class="field">
           <label for="f-synopsis">Résumé</label>
