@@ -5,12 +5,12 @@
 // (onglet Archives) et En cours — voir notes-overlay.js, module partagé
 // entre les trois rubriques : elles renvoient toutes aux mêmes notes.
 //
-// NOTE : le modèle de livre (data-layer.js) n'a pas de champ "note/10" —
-// seules les séances (player-layer.js) ont un champ note (texte libre,
-// saisi en cours de lecture). La Guilde ne réinvente donc pas de
-// notation ; elle affiche les métadonnées réelles du livre (genre, pages,
-// durée de lecture calculée depuis startedAt/finishedAt, provenance) et
-// donne accès aux notes de séance déjà prises.
+// NOTE V2 : le livre (data-layer.js) porte désormais noteFinale (1 à 5
+// étoiles, facultative) renseignée via le popup de fin de livre dans
+// "En cours". Le commentaire final, lui, n'est pas dupliqué ici : il vit
+// dans la sous-collection "seances" (type "commentaireFinal") et reste
+// consultable, épinglé en tête, via "Lire les notes" (notes-overlay.js,
+// module partagé entre la Guilde, la Réserve et En cours).
 
 import { subscribeBooks, getBooks } from './data-layer.js';
 import { subscribeSeances } from './player-layer.js';
@@ -103,6 +103,11 @@ function renderPhrase(finished) {
     `achevé${finished.length > 1 ? 's' : ''} reposent dans les archives de la Guilde.`;
 }
 
+function renderEtoiles(note) {
+  if (!note) return '';
+  return `<span class="guilde-note" aria-label="Note : ${note}/5">${'★'.repeat(note)}${'☆'.repeat(5 - note)}</span>`;
+}
+
 function renderCard(book) {
   const isOpen = book.id === openId;
   const jours = joursEntre(book.startedAt, book.finishedAt);
@@ -120,6 +125,7 @@ function renderCard(book) {
               <span class="tag--light">${getGenreLabel(book.genre)}</span>
               <span class="tag--light">${book.pageCount} pages</span>
               <span class="tag--light">Achevé le ${formatDate(book.finishedAt)}</span>
+              ${renderEtoiles(book.noteFinale)}
             </div>
           </div>
           <span class="guilde-chevron">${isOpen ? '▼' : '▶'}</span>
