@@ -78,8 +78,18 @@ export async function addBook(bookData) {
     synopsis: bookData.synopsis || '',
     status: bookData.status || 'backlog',
     countsForXp: bookData.countsForXp !== false,
-    arcanesLevel: bookData.arcanesLevel || 1,
+    // Difficulté déclarée par le joueur (1 à 3 étoiles), ex-"arcanesLevel".
+    // Sert désormais au calcul de la Curiosité (bonus de fin de livre) et
+    // au doublement du bonus de Régularité pendant la lecture d'un 3/3.
+    difficulte: bookData.difficulte || 1,
+    // Passe à true dès que le popup d'ajustement de difficulté (déclenché
+    // à 60 pages lues, cf. encours-app.js) a été présenté une fois — il ne
+    // doit plus jamais réapparaître ensuite pour ce livre.
+    difficultePopupShown: false,
     finishedAt: bookData.status === 'finished' ? Date.now() : null,
+    // Remplis au moment où "Marquer comme terminé" est confirmé.
+    noteFinale: null,
+    commentaireFinal: '',
     xpEarnedOnFinish: null,
     addedAt: Date.now(),
   };
