@@ -1,9 +1,10 @@
 // ScriptoriApp — reserve-app.js
 // Logique de la rubrique Réserve (Bibliothèque / Archives).
 //
-// NOTE V1 : xp-engine.js contient déjà tout le futur système (Arcanes,
-// Curiosité, Régularité, bonus de fin de livre). Pour la V1 on n'importe
-// PAS ces fonctions ici — la Réserve ne calcule aucune XP.
+// NOTE V2 : la Réserve fixe la difficulté (1-3 étoiles) à l'ajout d'un
+// livre, mais ne calcule elle-même aucune XP — le calcul de fin de livre
+// (Curiosité + Maîtrise des Arcanes) a lieu dans "En cours", au moment où
+// le popup de fin de livre est validé (cf. encours-app.js).
 //
 // NOTE FIRESTORE : books n'est plus lu via getBooks() à chaque action, mais
 // reçu en continu via subscribeBooks() — books se met à jour automatiquement
@@ -53,6 +54,8 @@ const els = {
   manualForm: document.getElementById('manual-form'),
   synopsisInput: document.getElementById('f-synopsis'),
   synopsisCount: document.getElementById('synopsis-count'),
+  difficulteEtoiles: document.getElementById('f-difficulte-etoiles'),
+  difficulteInput: document.getElementById('f-difficulte'),
   illustrationInput: document.getElementById('f-illustration'),
   illustrationPreview: document.getElementById('illustration-preview'),
   illustrationPreviewImg: document.getElementById('illustration-preview-img'),
@@ -329,6 +332,17 @@ els.sortSelect.addEventListener('change', (e) => {
   renderTabContent(getBooks());
 });
 
+function setDifficulteEtoiles(valeur) {
+  els.difficulteInput.value = String(valeur);
+  els.difficulteEtoiles.querySelectorAll('.etoile').forEach((btn) => {
+    btn.classList.toggle('is-active', Number(btn.dataset.valeur) <= valeur);
+  });
+}
+
+els.difficulteEtoiles.querySelectorAll('.etoile').forEach((btn) => {
+  btn.addEventListener('click', () => setDifficulteEtoiles(Number(btn.dataset.valeur)));
+});
+
 function openModal(modal) { modal.classList.add('is-open'); }
 function closeModal(modal) { modal.classList.remove('is-open'); }
 
@@ -354,6 +368,7 @@ function openAddModal() {
   els.deleteManual.hidden = true;
   els.manualForm.reset();
   els.synopsisCount.textContent = '0';
+  setDifficulteEtoiles(1);
   resetIllustrationPicker();
   openModal(els.modalManual);
 }
@@ -369,6 +384,7 @@ function openEditModal(id) {
   els.manualForm.elements['author'].value = book.author;
   els.manualForm.elements['pageCount'].value = book.pageCount;
   els.manualForm.elements['genre'].value = book.genre;
+  setDifficulteEtoiles(book.difficulte || 1);
   els.manualForm.elements['synopsis'].value = book.synopsis || '';
   els.synopsisCount.textContent = String((book.synopsis || '').length);
   els.manualForm.elements['provenance'].value = book.provenance;
@@ -431,6 +447,7 @@ els.manualForm.addEventListener('submit', async (e) => {
     author: data.get('author').trim(),
     pageCount: data.get('pageCount'),
     genre: data.get('genre'),
+    difficulte: Number(data.get('difficulte')) || 1,
     synopsis: (data.get('synopsis') || '').trim().slice(0, 120),
     provenance: data.get('provenance'),
     status: destination,
