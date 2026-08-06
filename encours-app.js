@@ -13,9 +13,25 @@
 // ancienne en haut à la plus récente en bas.
 
 import { subscribeBooks, updateBook, getCurrentReadingBook } from './data-layer.js';
-import { subscribePlayer, subscribeSeances, enregistrerSeance } from './player-layer.js';
-import { calculerXpSavoir, calculerBonusSeance, calculerNiveau } from './xp-engine.js';
+import {
+  subscribePlayer,
+  subscribeSeances,
+  enregistrerSeance,
+  crediterXpFinDeLivre,
+  enregistrerCommentaireFinal,
+} from './player-layer.js';
+import {
+  calculerXpSavoir,
+  calculerBonusSeance,
+  calculerBonusNoteSeance,
+  calculerXpFinDeLivre,
+  calculerNiveau,
+  XP_COMMENTAIRE_FINAL,
+} from './xp-engine.js';
 import { openNotesOverlay } from './notes-overlay.js';
+
+/** Seuil de pages à partir duquel le popup d'ajustement de difficulté peut apparaître. */
+const SEUIL_POPUP_DIFFICULTE = 60;
 
 const contentArea = document.getElementById('content-area');
 const niveauLabel = document.getElementById('niveau-label');
@@ -140,9 +156,7 @@ function renderContent(books) {
 
   const btnTerminer = document.getElementById('btn-terminer');
   if (btnTerminer) {
-    btnTerminer.addEventListener('click', () => {
-      updateBook(livre.id, { status: 'finished', finishedAt: Date.now() });
-    });
+    btnTerminer.addEventListener('click', () => openFinDeLivrePopup(livre));
   }
 }
 
@@ -155,15 +169,24 @@ function onSubmitSeance(livre) {
     if (pagesLues <= 0) return;
 
     const note = noteInput ? noteInput.value.trim() : '';
+    const noteRedigee = note !== '';
     const xpSavoir = calculerXpSavoir(pagesLues);
     const xpSeance = calculerBonusSeance(pagesLues);
-    const xpGagne = xpSavoir + xpSeance;
+    const xpNote = calculerBonusNoteSeance(noteRedigee);
+    const xpGagne = xpSavoir + xpSeance + xpNote;
 
-    updateBook(livre.id, { pagesRead: livre.pagesRead + pagesLues });
-    enregistrerSeance({ livreId: livre.id, pagesLues, xpGagne, note });
+    const nouveauPagesRead = livre.pagesRead + pagesLues;
+    const doitProposerPopupDifficulte =
+      nouveauPagesRead >= SEUIL_POPUP_DIFFICULTE &&
+      livre.pagesRead < SEUIL_POPUP_DIFFICULTE &&
+      !livre.difficultePopupShown;
+
+    updateBook(livre.id, { pagesRead: nouveauPagesRead });
+    enregistrerSeance({ livreId: livre.id, pagesLues, xpGagne, note, difficulteLivre: livre.difficulte });
 
     pendingFeedbackHtml = `<strong>+${xpGagne} XP</strong><br>${pagesLues} pages · Savoir ${xpSavoir} XP` +
-      (xpSeance > 0 ? ` · Bonus de séance ${xpSeance} XP` : ' · pas de bonus de séance (moins de 10 pages)');
+      (xpSeance > 0 ? ` · Bonus de séance ${xpSeance} XP` : ' · pas de bonus de séance (moins de 10 pages)') +
+      (xpNote > 0 ? ` · Note rédigée +${xpNote} XP` : '');
 
     const feedbackEl = document.getElementById('seance-feedback');
     if (feedbackEl) {
@@ -177,7 +200,142 @@ function onSubmitSeance(livre) {
       pendingFeedbackHtml = null;
       renderContent(lastKnownBooks);
     }, 1600);
+
+    if (doitProposerPopupDifficulte) {
+      // Affiché après le popup de difficulté potentiel, indépendamment du
+      // repli de la fiche séance (l'overlay reste au-dessus).
+      openDifficultePopup({ ...livre, pagesRead: nouveauPagesRead });
+    }
   };
+}
+
+// --- Popup d'ajustement de difficulté (déclenché une fois, à 60 pages) -----
+
+function openDifficultePopup(livre) {
+  const overlay = document.createElement('div');
+  overlay.id = 'difficulte-popup';
+  overlay.innerHTML = `
+    <style>
+      #difficulte-popup{ position:fixed; inset:0; z-index:600; background:rgba(10,6,2,.72);
+        display:flex; align-items:center; justify-content:center; padding:20px; }
+      #difficulte-popup .sheet{ max-width:360px; width:100%; background:linear-gradient(180deg,#2a1c10,#1c1108);
+        border:2px solid var(--brass,#c9a876); border-radius:6px; padding:20px; text-align:center;
+        font-family:'VT323', monospace; color:var(--parchment,#ede3c8); }
+      #difficulte-popup h2{ font-family:'Press Start 2P', monospace; font-size:13px; margin:0 0 14px; line-height:1.6; }
+      #difficulte-popup p{ font-size:17px; line-height:1.4; margin:0 0 16px; opacity:.9; }
+      #difficulte-popup .etoiles{ display:flex; justify-content:center; gap:10px; margin-bottom:18px; }
+      #difficulte-popup .etoile{ font-size:34px; cursor:pointer; opacity:.35; background:none; border:none; padding:0; }
+      #difficulte-popup .etoile.is-active{ opacity:1; }
+      #difficulte-popup .actions{ display:flex; gap:10px; justify-content:center; }
+    </style>
+    <div class="sheet">
+      <h2>60 pages franchies</h2>
+      <p>Cet ouvrage se révèle à toi. Ajustes-tu son niveau de difficulté&nbsp;?</p>
+      <div class="etoiles" id="difficulte-etoiles">
+        ${[1, 2, 3].map((n) => `<button type="button" class="etoile${n <= (livre.difficulte || 1) ? ' is-active' : ''}" data-valeur="${n}">★</button>`).join('')}
+      </div>
+      <div class="actions">
+        <button class="btn-dnd btn-dnd--ghost" id="difficulte-garder" type="button">Garder telle quelle</button>
+        <button class="btn-dnd" id="difficulte-valider" type="button">Valider</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  let valeurChoisie = livre.difficulte || 1;
+  const etoiles = overlay.querySelectorAll('.etoile');
+  etoiles.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      valeurChoisie = Number(btn.dataset.valeur);
+      etoiles.forEach((e) => e.classList.toggle('is-active', Number(e.dataset.valeur) <= valeurChoisie));
+    });
+  });
+
+  const fermer = (difficulte) => {
+    updateBook(livre.id, { difficulte, difficultePopupShown: true });
+    overlay.remove();
+  };
+
+  document.getElementById('difficulte-garder').addEventListener('click', () => fermer(livre.difficulte || 1));
+  document.getElementById('difficulte-valider').addEventListener('click', () => fermer(valeurChoisie));
+}
+
+// --- Popup de fin de livre (note + commentaire final) ----------------------
+
+function openFinDeLivrePopup(livre) {
+  const overlay = document.createElement('div');
+  overlay.id = 'fin-livre-popup';
+  overlay.innerHTML = `
+    <style>
+      #fin-livre-popup{ position:fixed; inset:0; z-index:600; background:rgba(10,6,2,.78);
+        display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
+      #fin-livre-popup .sheet{ max-width:420px; width:100%; background:linear-gradient(180deg,#2a1c10,#1c1108);
+        border:2px solid var(--brass,#c9a876); border-radius:6px; padding:22px; text-align:center;
+        font-family:'VT323', monospace; color:var(--parchment,#ede3c8); }
+      #fin-livre-popup h2{ font-family:'Press Start 2P', monospace; font-size:13px; margin:0 0 6px; line-height:1.6; }
+      #fin-livre-popup .sous-titre{ font-size:16px; opacity:.75; margin:0 0 18px; }
+      #fin-livre-popup .champ{ text-align:left; margin-bottom:16px; }
+      #fin-livre-popup label{ display:block; font-size:15px; opacity:.85; margin-bottom:6px; }
+      #fin-livre-popup .etoiles{ display:flex; gap:8px; }
+      #fin-livre-popup .etoile{ font-size:30px; cursor:pointer; opacity:.35; background:none; border:none; padding:0; }
+      #fin-livre-popup .etoile.is-active{ opacity:1; }
+      #fin-livre-popup textarea{ width:100%; box-sizing:border-box; font-family:'VT323', monospace; font-size:18px;
+        padding:8px; border:2px solid var(--brass,#c9a876); border-radius:4px; background:#150e07; color:var(--parchment,#ede3c8);
+        resize:vertical; }
+      #fin-livre-popup .hint{ font-size:14px; opacity:.6; margin-top:4px; }
+      #fin-livre-popup .actions{ display:flex; gap:10px; justify-content:center; margin-top:6px; }
+    </style>
+    <div class="sheet">
+      <h2>${escapeHtml(livre.title)}</h2>
+      <p class="sous-titre">Le livre se referme. Un dernier mot avant de le ranger&nbsp;?</p>
+      <div class="champ">
+        <label>Ta note (facultatif)</label>
+        <div class="etoiles" id="fin-livre-etoiles">
+          ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="etoile" data-valeur="${n}">★</button>`).join('')}
+        </div>
+      </div>
+      <div class="champ">
+        <label for="fin-livre-commentaire">Commentaire final (facultatif — +${XP_COMMENTAIRE_FINAL} XP si rédigé)</label>
+        <textarea id="fin-livre-commentaire" rows="4" placeholder="Ce que tu retiens de cette lecture…"></textarea>
+        <p class="hint">Sans commentaire, ce bonus n'est pas accordé — le livre peut tout de même être marqué terminé.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-dnd btn-dnd--ghost" id="fin-livre-annuler" type="button">Annuler</button>
+        <button class="btn-dnd" id="fin-livre-valider" type="button">Marquer comme terminé</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  let noteChoisie = null;
+  const etoiles = overlay.querySelectorAll('.etoile');
+  etoiles.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      noteChoisie = Number(btn.dataset.valeur);
+      etoiles.forEach((e) => e.classList.toggle('is-active', Number(e.dataset.valeur) <= noteChoisie));
+    });
+  });
+
+  document.getElementById('fin-livre-annuler').addEventListener('click', () => overlay.remove());
+
+  document.getElementById('fin-livre-valider').addEventListener('click', async () => {
+    const commentaireFinal = document.getElementById('fin-livre-commentaire').value.trim();
+    const difficulte = livre.difficulte || 1;
+    const { total } = calculerXpFinDeLivre({ difficulte, commentaireFinal });
+
+    await updateBook(livre.id, {
+      status: 'finished',
+      finishedAt: Date.now(),
+      noteFinale: noteChoisie,
+      commentaireFinal,
+      xpEarnedOnFinish: total,
+    });
+
+    if (total > 0) await crediterXpFinDeLivre(total);
+    if (commentaireFinal) await enregistrerCommentaireFinal({ livreId: livre.id, commentaire: commentaireFinal });
+
+    overlay.remove();
+  });
 }
 
 subscribeBooks((books) => {
